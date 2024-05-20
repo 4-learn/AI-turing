@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request, Response, status
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from ai import chat
 import os
 
 app = FastAPI()
@@ -31,10 +32,12 @@ async def handle_webhook(request: Request):
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    line_bot_api.reply_message(
-        event.reply_token,
-        TextSendMessage(text = event.message.text)
-    )
+    print(event.message.text)
+    if os.getenv("BOT_NAME") in event.message.text:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text = chat(event.message.text)) # event.message.text
+        )
 
 if __name__ == "__main__":
     import uvicorn
