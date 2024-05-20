@@ -1,25 +1,17 @@
-import requests
-import json
+from langchain_openai import OpenAI
+from langchain.prompts import PromptTemplate
 import os
 
 def chat(text):
-    payload = json.dumps({
-      "role": os.getenv("BOT_NAME"),
-      "type": "llm",
-      "// model": "mistralai/Mistral-7B-Instruct-v0.2",
-      "// format": "html",
-      "message": text
-    })
-    headers = {
-      'Content-Type': 'application/json'
-    }
+    llm = OpenAI()
+    prompt = PromptTemplate(
+        input_variables=["question"],
+        template = "你是 " + os.getenv("BOT_NAME") + ", 是我的數位助手，現在有個問題想請教你: {question}",
+    )
 
-    response = requests.request("POST", os.getenv("API_ENDPOINT_LLMTWINS") + "/prompt", headers=headers, data=payload)
-
-    # Convert response to JSON
+    # Response
     try:
-        response = response.json()
-        return response["message"]
+        return llm.invoke(prompt.format(question=text))
     except Exception as e:
         print(str(e))
         return os.getenv("BOT_NAME") + " 壞掉了，趕快請人類來修理: " + str(e)
