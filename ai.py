@@ -1,18 +1,31 @@
-from langchain.agents import load_tools
-from langchain.agents import initialize_agent
-from langchain.agents import AgentType
-from langchain_openai import OpenAI
+import requests
+import json
 import os
 
 def chat(text):
-    llm = OpenAI(temperature=0)
-    tools = load_tools(["serpapi"], llm=llm)
-    agent = initialize_agent(tools, llm, agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION, verbose = False)
+    payload = json.dumps({
+      "role": os.getenv("BOT_NAME"),
+      "type": "RAG",
+      "tools": [
+        {
+          "tool": "agent",
+          "load_tools": "custom"
+        }
+      ],
+      "// model": "mistralai/Mistral-7B-Instruct-v0.2",
+      "// format": "html",
+      "message": text
+    })
+    headers = {
+      'Content-Type': 'application/json'
+    }
+
+    response = requests.request("POST", os.getenv("API_ENDPOINT_LLMTWINS") + "/prompt", headers=headers, data=payload)
 
     # Convert response to JSON
     try:
-        response = agent.invoke(text)
-        return response["output"]
+        response = response.json()
+        return response["message"]
     except Exception as e:
         print(str(e))
         return os.getenv("BOT_NAME") + " 壞掉了，趕快請人類來修理: " + str(e)
