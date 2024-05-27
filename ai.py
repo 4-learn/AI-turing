@@ -1,32 +1,41 @@
-import requests
+import os
 import json
-from langchain.agents import tool, load_tools, initialize_agent, AgentType
+from langchain_core.tools import Tool
+from langchain.agents import load_tools, initialize_agent, AgentType
 from langchain_openai import OpenAI
+from utils.module_tools import get_functions_from_files, import_function_from_file
 
-@tool
-def device_info(text: str) -> str:
-    """Return device's status."""
-    url = "http://211.21.113.190:8155/api/states/switch.mqtt_ntnu_1_2_sw_2"
+def load_rag_tools(prompt):
+    list_arg_tools = []
+    directory = os.getenv("PATH_RAG_TOOLS")
+    functions_dict = get_functions_from_files(directory)
 
-    payload = ""
-    headers = {
-        'Content-type': 'application/json ',
-        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI4YWM0MDEzODIwNDU0MDE0ODdjNzIwZTc2ZDBmYzdjYSIsImlhdCI6MTY5ODgwNzExNSwiZXhwIjoyMDE0MTY3MTE1fQ.7KaCwPUcjAr_zne04qili2fwQO1QoWTPzsmV1v_LLIc'
-    }
+    for file_path, functions in functions_dict.items():
+        for function_name in functions:
+            function = import_function_from_file(file_path, function_name)
+            wrapped_function = lambda input_data, func=function, params=json.dumps(prompt, ensure_ascii=False): func(params)
 
-    response = requests.request("GET", url, headers = headers, data = payload)
+            tool = Tool(
+                name = function_name,
+                func = wrapped_function,
+                description = f"Wrapped function {function_name} with custom message"
+            )
+            list_arg_tools.append(tool)
 
-    return json.dumps(response.text)
+    return list_arg_tools
+
 
 def chat(text):
     llm = OpenAI(temperature=0)
+
+    list_rag_tools = load_rag_tools(text)
 
     # Load the tools
     tools = load_tools([], llm=llm)
 
     # Initialize the agent with the specific tool
     agent = initialize_agent(
-        tools + [device_info],
+        tools + list_rag_tools,
         llm,
         agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
         handle_parsing_errors=True,
